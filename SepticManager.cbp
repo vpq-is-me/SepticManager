@@ -30,9 +30,23 @@
 		</Build>
 		<Compiler>
 			<Add option="-Wall" />
+			<Add option="-std=gnu++20" />
 			<Add option="-fexceptions" />
 		</Compiler>
+		<Linker>
+			<Add option="-ljansson" />
+		</Linker>
+		<Unit filename="ble_messaging.cpp" />
+		<Unit filename="ble_messaging.h" />
 		<Unit filename="main.cpp" />
+		<Unit filename="main.h" />
+		<Unit filename="sqlite/sqlite3.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="sqlite/sqlite3.h" />
+		<Unit filename="sqlite/sqlite3ext.h" />
+		<Unit filename="up2web_comm.cpp" />
+		<Unit filename="up2web_comm.h" />
 		<Extensions />
 	</Project>
 </CodeBlocks_project_file>

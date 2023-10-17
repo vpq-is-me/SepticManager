@@ -1,2 +1,5 @@
 /obj
 /bin
+Septic_errors_log
+septic_error_db_log
+septic_log.db
