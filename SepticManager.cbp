@@ -35,6 +35,8 @@
 		</Compiler>
 		<Linker>
 			<Add option="-ljansson" />
+			<Add library="pthread" />
+			<Add library="dl" />
 		</Linker>
 		<Unit filename="ble_messaging.cpp" />
 		<Unit filename="ble_messaging.h" />
