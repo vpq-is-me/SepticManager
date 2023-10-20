@@ -1,7 +1,7 @@
 #ifndef UP2WEB_COMM_H_INCLUDED
 #define UP2WEB_COMM_H_INCLUDED
 
-#include <map>
+#include <vector>
 #include <string>
 #include <algorithm>
 #include <mutex>
@@ -31,24 +31,27 @@ typedef struct{
     time_t last_message_time;//timestamp (in epoch, in second) when last received any message from septic
 }tShared_mem_st;
 
-
+enum mes_type_en{ACTIVEen,PENDINGen};
 class tUp2Web_cl{
 public:
     ~tUp2Web_cl();
     void InitMemory(void);
-    void UpdateActiveAlarms(uint32_t val);
-    void UpdatePendingAlarms(uint32_t val);
-
+    void UpdateAlarms(uint32_t val,mes_type_en mes_type);
     int ServeSnapRequest(char*buf,char const* val_name);
     void DB_Open(void);
-    int DB_AddRow(void);
+    int DB_AddRow(time_t tout);
     int DB_ServeTableRequest(json_t*root,char**answ);
 private:
     tShared_mem_st* smem;
     sqlite3* log_db=nullptr;
-    static const std::map <std::string,std::string> DB_columns_arr;//store array of columns name of database
+    static const std::vector<std::pair<std::string,std::string>> DB_columns_arr;//store array of columns name of database
     bool IsInColumns(const std::string str){
-        return DB_columns_arr.find(str)!=DB_columns_arr.end();
+        bool res=false;
+        for(const auto pr:DB_columns_arr){
+            if(str==pr.first)res=true;
+        }
+        return res;
+        //return DB_columns_arr.find(str)!=DB_columns_arr.end();
     }
 };
 enum tag_en{TAG_REQSNAP        =1,

@@ -147,7 +147,7 @@ void tUp2Web_cl::InitMemory(void) {
     smem=(tShared_mem_st*)mmap(NULL,sizeof(tShared_mem_st),PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1,0);
     smem->active_alarms=0;
     smem->pending_alarms=0;
-    smem->last_message_time=0;
+    smem->last_message_time=time(NULL);
 }
 tUp2Web_cl::~tUp2Web_cl(void) {
     munmap(smem,sizeof(tShared_mem_st));
@@ -155,17 +155,20 @@ tUp2Web_cl::~tUp2Web_cl(void) {
     err_db_log_file.close();
 }
 
-void tUp2Web_cl::UpdateActiveAlarms(uint32_t val) {
-    std::lock_guard<std::mutex> lg(smem->web_mutex);
-    smem->active_alarms=val;
-    smem->last_message_time=time(NULL);
+void tUp2Web_cl::UpdateAlarms(uint32_t val,mes_type_en mes_type) {
+    uint32_t prev;
+    time_t tout;
+    {
+        std::lock_guard<std::mutex> lg(smem->web_mutex);
+        tout=(time_t)difftime(time(NULL),smem->last_message_time);
+        if(tout<MAX_TIMEOUT_FROM_LAST_MSG_sec)tout=0;
+        int*p=mes_type==ACTIVEen ? &smem->active_alarms : &smem->pending_alarms;
+        prev=*p;
+        *p=val;
+        smem->last_message_time=time(NULL);
+    }
+    if(prev!=val || tout>=MAX_TIMEOUT_FROM_LAST_MSG_sec)DB_AddRow(tout);
 }
-void tUp2Web_cl::UpdatePendingAlarms(uint32_t val) {
-    std::lock_guard<std::mutex> lg(smem->web_mutex);
-    smem->pending_alarms=val;
-    smem->last_message_time=time(NULL);
-}
-
 
 ///*******************************************************************************************************************
 unsigned int constexpr str_hash(char const* str,int i=0) {
@@ -191,14 +194,14 @@ int tUp2Web_cl::ServeSnapRequest(char*buf,char const* val_name) {
     json_object_set_new(root,"tag",json_integer(TAG_REQSNAP));
     switch(str_hash_vol(val_name)){
         case str_hash("act_alarm"):
-            json_object_set_new(root,"act_alarm",json_real(smem->active_alarms));
+            json_object_set_new(root,"act_alarm",json_integer(smem->active_alarms));
         break;
         case str_hash("pend_alarm"):
-            json_object_set_new(root,"pend_alarm",json_real(smem->active_alarms));
+            json_object_set_new(root,"pend_alarm",json_integer(smem->active_alarms));
         break;
         case str_hash("msg_timer"):{
             time_t l_m_tout=(time_t)difftime(time(NULL),smem->last_message_time);
-            json_object_set_new(root,"msg_timer",json_real(l_m_tout));
+            json_object_set_new(root,"msg_timer",json_integer(l_m_tout));
         break;}
         default:
             json_object_set_new(root,"error",json_string("error"));
@@ -209,7 +212,7 @@ int tUp2Web_cl::ServeSnapRequest(char*buf,char const* val_name) {
     return len;
 }
 
-const map <string, string> tUp2Web_cl::DB_columns_arr={
+const std::vector<std::pair<std::string,std::string>> tUp2Web_cl::DB_columns_arr={
     {"id","INTEGER PRIMARY KEY"},
     {"date","INTEGER NOT NULL"},
     {"act_alarm","INTEGER"},
@@ -233,10 +236,10 @@ void tUp2Web_cl::DB_Open(void) {
             sqlite3_free(zErrMsg);
             string sql="CREATE TABLE alarm_table(";
             char colon=' ';
-            for(const auto &[k,v]:DB_columns_arr){
+            for(const auto pr:DB_columns_arr){
                 sql+=colon;
                 colon=',';
-                sql+=k + " " + v;
+                sql+=pr.first + " " + pr.second;
             }
             sql+=");";
             cerr<<endl<<sql<<endl;
@@ -247,7 +250,7 @@ void tUp2Web_cl::DB_Open(void) {
     }
 }
 ///*******************************************************************************************************************
-int tUp2Web_cl::DB_AddRow(void) {
+int tUp2Web_cl::DB_AddRow(time_t tout) {
     int res;
     char *zErrMsg;
     string sql;
@@ -255,17 +258,16 @@ int tUp2Web_cl::DB_AddRow(void) {
         std::lock_guard<std::mutex> lg(smem->web_mutex);
         sql="INSERT INTO alarm_table (";
         char colon=' ';
-        for(const auto&[k,v]:DB_columns_arr){
+        for(unsigned int i=1;i<DB_columns_arr.size();i++){//start iterating from second cell, because 'id' inserted automatically
             sql+=colon;
             colon=',';
-            sql+=k;
+            sql+=DB_columns_arr[i].first;
         }
-        time_t tout=(time_t)difftime(time(NULL),smem->last_message_time);
-        if(tout<MAX_TIMEOUT_FROM_LAST_MSG_sec)
-        sql+=") VALUES (unixepoch('now','localtime')";
-        sql+=std::to_string(smem->active_alarms) +"," + std::to_string(smem->active_alarms) + std::to_string(tout)+");";
+        sql+=") VALUES (unixepoch('now','localtime'),";
+        sql+=std::to_string(smem->active_alarms) +"," + std::to_string(smem->pending_alarms) + "," + std::to_string(tout)+");";
     }
     /* Execute SQL statement */
+    DEBUG(cout<<endl<<"sql req: "<<sql<<endl;)
     res = sqlite3_exec(log_db, sql.c_str(), 0, 0, &zErrMsg);
     if( res != SQLITE_OK ) {
         cout<<endl<<zErrMsg<<endl;

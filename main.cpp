@@ -144,7 +144,7 @@ int main() {
 #warning This is debug version! Don`t forger comment DEBUG_ALONE
 #endif
     while(!stop_flg) {
-        cout<<"TODO enter message  >";
+        cout<<"Enter message to send  >";
         if(fgets(message,255,stdin)==NULL) {//now it is for nothing taking input from user
             continue;
         }

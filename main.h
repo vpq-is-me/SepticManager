@@ -11,5 +11,6 @@ extern int sock_2ble_client;
 #define DEBUG(str) str
 //#define DEBUG(str)
 
+//TODO !!!check memory leakage
 
 #endif // MAIN_H_INCLUDED

@@ -44,12 +44,12 @@ void BLE_message_exec(void){
         switch(mesh2pc_msg.msg_copy.opcode){
         case SEPTIC_OP_ALARM_STATUS:
             if(mesh2pc_msg.msg_copy.length==1){
-                up2web.UpdateActiveAlarms((int32_t)mesh2pc_msg.msg_copy.msg[0]);
+                up2web.UpdateAlarms((int32_t)mesh2pc_msg.msg_copy.msg[0],ACTIVEen);
             }
             break;
         case SEPTIC_OP_PEND_ALARM_STATUS:
             if(mesh2pc_msg.msg_copy.length==1){
-                up2web.UpdatePendingAlarms((int32_t)mesh2pc_msg.msg_copy.msg[0]);
+                up2web.UpdateAlarms((int32_t)mesh2pc_msg.msg_copy.msg[0],PENDINGen);
             }
             break;
         }//END switch(...
